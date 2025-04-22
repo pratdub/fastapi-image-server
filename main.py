@@ -36,6 +36,10 @@ async def shutdown_db_client(app):
 # creating a server with python FastAPI
 app = FastAPI(lifespan=lifespan)
 
+@app.get("/")
+async def home():
+    return {"data": "Hello World"}
+
 
 @app.post("/upload")
 async def upload_image(file: UploadFile = File(...)):
