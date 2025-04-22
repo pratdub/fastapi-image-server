@@ -64,14 +64,23 @@ async def upload_image(file: UploadFile = File(...)):
 
 @app.get("/image/{image_id}")
 async def get_image(image_id: str):
-    # Retrieve the image from the MongoDB collection
+    # Check if the image exists in the /images/ folder
+    image_path = Path(f"./images/{image_id}")
+    if image_path.exists():
+        return FileResponse(image_path, media_type="application/octet-stream", filename=image_path.name)
+
+    # If not found in the folder, check the MongoDB collection
     image_data = await app.mongodb["images"].find_one({"_id": image_id})
     if not image_data:
-        return {"message": "Image not found"}
+        return {"message": "Image not found"}, 404
 
-    # Generate a URL for the image
-    image_url = f"http://localhost:8000/image/{image_id}/download"
-    return {"id": image_id, "url": image_url}
+    # Decode the base64 image data and save it to the /images/ folder
+    image_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(image_path, "wb") as image_file:
+        image_file.write(base64.b64decode(image_data["data"]))
+
+    # Return the image as a FileResponse
+    return FileResponse(image_path, media_type=image_data["content_type"], filename=image_data["filename"])
 
 
 # Optional utility for generating ID and converting image to base64
