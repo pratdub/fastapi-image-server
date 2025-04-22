@@ -1,5 +1,5 @@
 # main.py
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Request
 from motor.motor_asyncio import AsyncIOMotorClient
 from models import ImageUpload
 from fastapi.responses import FileResponse
@@ -62,26 +62,47 @@ async def upload_image(file: UploadFile = File(...)):
 
     return {"id": image_id, "message": "Image uploaded successfully"}
 
+# @app.get("/image/{image_id}")
+# async def get_image(image_id: str, request: Request):
+#     # Check if the image exists in the /images/ folder
+#     image_path = Path(f"./images/{image_id}")
+#     base_url = str(request.base_url).rstrip("/")
+#     if image_path.exists():
+#         return FileResponse(image_path, media_type="application/octet-stream", filename=image_path.name)
+
+#     # If not found in the folder, check the MongoDB collection
+#     image_data = await app.mongodb["images"].find_one({"_id": image_id})
+#     if not image_data:
+#         return {"message": "Image not found"}, 404
+
+#     # Decode the base64 image data and save it to the /images/ folder
+#     image_path.parent.mkdir(parents=True, exist_ok=True)
+#     with open(image_path, "wb") as image_file:
+#         image_file.write(base64.b64decode(image_data["data"]))
+
+#     # Return the image as a FileResponse
+#     return FileResponse(image_path, media_type=image_data["content_type"], filename=image_data["filename"])
+
 @app.get("/image/{image_id}")
-async def get_image(image_id: str):
-    # Check if the image exists in the /images/ folder
+async def get_image(image_id: str, request: Request):
     image_path = Path(f"./images/{image_id}")
+
     if image_path.exists():
         return FileResponse(image_path, media_type="application/octet-stream", filename=image_path.name)
 
-    # If not found in the folder, check the MongoDB collection
     image_data = await app.mongodb["images"].find_one({"_id": image_id})
     if not image_data:
         return {"message": "Image not found"}, 404
 
-    # Decode the base64 image data and save it to the /images/ folder
     image_path.parent.mkdir(parents=True, exist_ok=True)
     with open(image_path, "wb") as image_file:
         image_file.write(base64.b64decode(image_data["data"]))
 
-    # Return the image as a FileResponse
-    return FileResponse(image_path, media_type=image_data["content_type"], filename=image_data["filename"])
+    base_url = str(request.base_url).rstrip("/")
+    print(base_url)
+    image_url = f"{base_url}/image/{image_id}"
 
+    return {"image_url": image_url}
 
 # Optional utility for generating ID and converting image to base64
 if __name__ == "__main__":
