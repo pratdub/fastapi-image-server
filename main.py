@@ -1,5 +1,6 @@
 # main.py
 from fastapi import FastAPI, UploadFile, File, Request
+from fastapi.staticfiles import StaticFiles
 from motor.motor_asyncio import AsyncIOMotorClient
 from models import ImageUpload
 from fastapi.responses import FileResponse
@@ -41,6 +42,7 @@ app = FastAPI(lifespan=lifespan)
 async def home():
     return {"data": "Hello World"}
 
+app.mount("/images", StaticFiles(directory="images"), name="images")
 
 @app.post("/upload")
 async def upload_image(image: ImageUpload):
@@ -56,7 +58,6 @@ async def upload_image(image: ImageUpload):
 
     return {
         "id": image_id,
-        "image_base64": image.image_base64
     }
     # return {"id": image_id, "message": "Image uploaded successfully"}
 
@@ -90,6 +91,10 @@ async def get_image(image_id: str, request: Request):
     image_url = f"{request.base_url}images/{image_id}.{image_extension}"
     return {"image_url": image_url}
 
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
 # @app.get("/image/{image_id}")
 # async def get_image(image_id: str, request: Request):
 #     image_path = Path(f"./images/{image_id}")
@@ -112,9 +117,7 @@ async def get_image(image_id: str, request: Request):
 #     return {"image_url": image_url}
 
 # Optional utility for generating ID and converting image to base64
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
 
 
 
