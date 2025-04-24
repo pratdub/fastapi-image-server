@@ -50,6 +50,14 @@ app.mount("/images", StaticFiles(directory="images"), name="images")
 async def upload_image(image: ImageUpload, request: Request):
     image_id = image.id
 
+    # Check if the ID already exists in the database
+    existing_image = await app.mongodb["images"].find_one({"_id": image_id})
+    if existing_image:
+        return {
+            "status": "error",
+            "message": "ID already exists"
+        }, 400
+
     image_data = {
         "_id": image_id,
         "filename": f"{image_id}.png",
@@ -104,6 +112,10 @@ async def check_image(image: CheckImageRequest, request: Request):
     image_url = f"{request.base_url}images/{image_id}.{image_extension}"
     return {"exists": 1, "image_url": image_url}, 200
 
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
 # @app.get("/image/{image_id}")
 # async def get_image(image_id: str, request: Request):
 #     # Check if the image exists in the /images/ folder with .jpg or .png extension
@@ -134,9 +146,7 @@ async def check_image(image: CheckImageRequest, request: Request):
 #     image_url = f"{request.base_url}images/{image_id}.{image_extension}"
 #     return {"image_url": image_url}
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
 
 
 
