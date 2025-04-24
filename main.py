@@ -42,7 +42,7 @@ app = FastAPI(lifespan=lifespan)
 async def home():
     return {"data": "Hello World"}
 
-app.mount("/images", StaticFiles(directory="images"), name="images")
+
 
 @app.post("/upload")
 async def upload_image(image: ImageUpload):
@@ -60,6 +60,8 @@ async def upload_image(image: ImageUpload):
         "id": image_id,
     }
     # return {"id": image_id, "message": "Image uploaded successfully"}
+
+app.mount("/images", StaticFiles(directory="images"), name="images")
 
 @app.get("/image/{image_id}")
 async def get_image(image_id: str, request: Request):
