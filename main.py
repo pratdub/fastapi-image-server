@@ -2,7 +2,7 @@
 from fastapi import FastAPI, UploadFile, File, Request
 from fastapi.staticfiles import StaticFiles
 from motor.motor_asyncio import AsyncIOMotorClient
-from models import ImageUpload
+from models import CheckImageRequest, ImageUpload
 from fastapi.responses import FileResponse
 import base64
 # import os
@@ -43,43 +43,54 @@ async def home():
     return {"data": "Hello World"}
 
 
+app.mount("/images", StaticFiles(directory="images"), name="images")
+
 
 @app.post("/upload")
-async def upload_image(image: ImageUpload):
-    image_id = str(uuid.uuid4())
+async def upload_image(image: ImageUpload, request: Request):
+    image_id = image.id
+
     image_data = {
         "_id": image_id,
-        "filename": f"{image_id}.png",  
-        "content_type": "image/png", 
+        "filename": f"{image_id}.png",
+        "content_type": "image/png",
         "data": image.image_base64
     }
 
     await app.mongodb["images"].insert_one(image_data)
 
+    image_path = Path(f"./images/{image_id}.png")
+    image_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(image_path, "wb") as image_file:
+        image_file.write(base64.b64decode(image.image_base64))
+
+    image_url = f"{request.base_url}images/{image_id}.png"
+
     return {
+        "status": "saved",
         "id": image_id,
+        "url": image_url
     }
-    # return {"id": image_id, "message": "Image uploaded successfully"}
 
-app.mount("/images", StaticFiles(directory="images"), name="images")
-
-@app.get("/image/{image_id}")
-async def get_image(image_id: str, request: Request):
+@app.post("/image/check")
+async def check_image(image: CheckImageRequest, request: Request):
+    image_id=image.id
     # Check if the image exists in the /images/ folder with .jpg or .png extension
     image_path_jpg = Path(f"./images/{image_id}.jpg")
     image_path_png = Path(f"./images/{image_id}.png")
 
     if image_path_jpg.exists():
         image_url = f"{request.base_url}images/{image_id}.jpg"
-        return {"image_url": image_url}
+        return {"exists": 1, "image_url": image_url}, 200
     elif image_path_png.exists():
         image_url = f"{request.base_url}images/{image_id}.png"
-        return {"image_url": image_url}
+        return {"exists": 1, "image_url": image_url}, 200
 
     # If not found in the folder, check the MongoDB collection
     image_data = await app.mongodb["images"].find_one({"_id": image_id})
     if not image_data:
-        return {"error": "Image not found"}, 404
+        return {"exists": 0, "message": "Image not found"}, 404
 
     # Decode the base64 image data and save it to the /images/ folder
     image_extension = "jpg" if image_data["content_type"] == "image/jpeg" else "png"
@@ -91,34 +102,43 @@ async def get_image(image_id: str, request: Request):
 
     # Generate the image URL
     image_url = f"{request.base_url}images/{image_id}.{image_extension}"
-    return {"image_url": image_url}
+    return {"exists": 1, "image_url": image_url}, 200
+
+# @app.get("/image/{image_id}")
+# async def get_image(image_id: str, request: Request):
+#     # Check if the image exists in the /images/ folder with .jpg or .png extension
+#     image_path_jpg = Path(f"./images/{image_id}.jpg")
+#     image_path_png = Path(f"./images/{image_id}.png")
+
+#     if image_path_jpg.exists():
+#         image_url = f"{request.base_url}images/{image_id}.jpg"
+#         return {"image_url": image_url}
+#     elif image_path_png.exists():
+#         image_url = f"{request.base_url}images/{image_id}.png"
+#         return {"image_url": image_url}
+
+#     # If not found in the folder, check the MongoDB collection
+#     image_data = await app.mongodb["images"].find_one({"_id": image_id})
+#     if not image_data:
+#         return {"error": "Image not found"}, 404
+
+#     # Decode the base64 image data and save it to the /images/ folder
+#     image_extension = "jpg" if image_data["content_type"] == "image/jpeg" else "png"
+#     image_path = Path(f"./images/{image_id}.{image_extension}")
+#     image_path.parent.mkdir(parents=True, exist_ok=True)
+
+#     with open(image_path, "wb") as image_file:
+#         image_file.write(base64.b64decode(image_data["data"]))
+
+#     # Generate the image URL
+#     image_url = f"{request.base_url}images/{image_id}.{image_extension}"
+#     return {"image_url": image_url}
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
 
-# @app.get("/image/{image_id}")
-# async def get_image(image_id: str, request: Request):
-#     image_path = Path(f"./images/{image_id}")
 
-#     if image_path.exists():
-#         return FileResponse(image_path, media_type="application/octet-stream", filename=image_path.name)
-
-#     image_data = await app.mongodb["images"].find_one({"_id": image_id})
-#     if not image_data:
-#         return {"message": "Image not found"}, 404
-
-#     image_path.parent.mkdir(parents=True, exist_ok=True)
-#     with open(image_path, "wb") as image_file:
-#         image_file.write(base64.b64decode(image_data["data"]))
-
-#     base_url = str(request.base_url).rstrip("/")
-#     print(base_url)
-#     image_url = f"{base_url}/image/{image_id}"
-
-#     return {"image_url": image_url}
-
-# Optional utility for generating ID and converting image to base64
 
 
 
